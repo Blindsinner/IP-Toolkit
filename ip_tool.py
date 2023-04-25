@@ -6,15 +6,23 @@ from tkinter import messagebox
 import ipaddress
 
 def binary_to_ip(binary_ip):
+    # Count the number of dots in the input string
+    num_dots = binary_ip.count('.')
+
     # Remove dots from the input string
     binary_ip = binary_ip.replace('.', '')
-    # Split the binary string into 4 octets
-    octets = [binary_ip[i:i+8] for i in range(0, len(binary_ip), 8)]
-    # Convert each octet to decimal and join with dots to form IP address
-    if len(octets) == 4: # IPv4
+
+    # Check if the binary IP is 32-bit (IPv4) or 128-bit (IPv6)
+    if len(binary_ip) == 32 and num_dots == 3:  # IPv4
+        octets = [binary_ip[i:i+8] for i in range(0, len(binary_ip), 8)]
         return '.'.join(str(int(octet, 2)) for octet in octets)
-    elif len(octets) == 8: # IPv6
-        return ':'.join([octet.lstrip('0') or '0' for octet in octets]).replace(':0:', '::', 1)
+    elif len(binary_ip) == 128 and num_dots == 7:  # IPv6
+        groups = [binary_ip[i:i+16] for i in range(0, len(binary_ip), 16)]
+        return ':'.join(format(int(group, 2), 'x') for group in groups).replace(':0:', '::', 1)
+    else:
+        return "Error: Invalid binary IP address."
+
+
 
 def ip_to_binary(ip_address):
     ip = ipaddress.ip_address(ip_address)
@@ -69,13 +77,29 @@ def network_address(ip, prefix_or_mask):
     except ValueError as ve:
         return f"Error: {ve}"
 
+def get_ip_class_by_first_octet(ip_address):
+    first_octet = int(ip_address.split(".")[0])
+
+    if 1 <= first_octet <= 126:
+        return 'A'
+    elif 128 <= first_octet <= 191:
+        return 'B'
+    elif 192 <= first_octet <= 223:
+        return 'C'
+    elif 224 <= first_octet <= 239:
+        return 'D'
+    elif 240 <= first_octet <= 255:
+        return 'E'
+    else:
+        return 'Invalid'
 
 
 def cidr_to_subnet_mask(ip_address, cidr):
     binary_mask = '1' * cidr + '0' * (32 - cidr)
     octets = [binary_mask[i:i+8] for i in range(0, 32, 8)]
     subnet_mask = '.'.join(str(int(octet, 2)) for octet in octets)
-    return cidr, subnet_mask
+    return subnet_mask  # Return only the subnet mask as a string
+
 def ipv4_to_ipv6(ipv4_address):
     ipv6_obj = ipaddress.IPv6Address('::ffff:' + ipv4_address)
     compressed = ipv6_obj.compressed
@@ -101,6 +125,16 @@ def possible_subnets(ip_address, subnet_mask):
         return network.num_addresses
     except ValueError:
         return "Error: Invalid IP address or subnet mask."
+
+def get_ip_class_by_hosts(total_hosts):
+    if total_hosts >= 16777214:
+        return 'A'
+    elif total_hosts >= 65534:
+        return 'B'
+    elif total_hosts >= 254:
+        return 'C'
+    else:
+        return 'D'
 
 def ip_class_private_public(ip_address, cidr):
     try:
@@ -153,19 +187,26 @@ def display_all_info(ip_address, cidr):
         total_hosts = ip_net.num_addresses
         usable_hosts = total_hosts - 2
         compressed, expanded_shortened, expanded = ipv4_to_ipv6(ip_address)
+        subnet_mask = str(ip_net.netmask)
+        wildcard_mask = str(ip_net.hostmask)
+        ip_class = get_ip_class_by_first_octet(ip_address)
+        ip_class_by_hosts = get_ip_class_by_hosts(total_hosts)
+        
         output = {
+            "Display All Information for an IP Address and Subnet": "",
             "IP Address": ip_address,
-            "Subnet Mask": str(ip_net.netmask),
-            "Wildcard Mask": str(ip_net.hostmask),
-            "CIDR Notation": cidr,
+            "Subnet Mask": subnet_mask,
+            "Wildcard Mask": wildcard_mask,
+            "CIDR Notation": f"{ip_address}/{cidr}",
             "Network Address": network_address,
             "Binary IP": ip_to_binary(ip_address),
             "Short": f"{ip_address}/{cidr}",
-            "Binary Subnet Mask": ip_to_binary(str(ip_net.netmask)),
+            "Binary Subnet Mask": ip_to_binary(subnet_mask),
             "Integer ID": int(ipaddress.IPv4Address(ip_address)),
             "Hex ID": hex(int(ipaddress.IPv4Address(ip_address))),
             "Binary ID": bin(int(ipaddress.IPv4Address(ip_address)))[2:].zfill(32),
-            "IP Class": ip_class_private_public(ip_address, cidr=cidr).split(',')[0],
+            "IP Class by First Octet": ip_class,
+            "IP Class by Total Hosts": ip_class_by_hosts,
             "IP Type": "Private" if ipaddress.IPv4Network(ip_address + '/' + str(cidr), strict=False).is_private else "Public",
             "Usable Host IP Range": ip_range,
             "Broadcast Address": broadcast_address,
@@ -184,10 +225,11 @@ def display_all_info(ip_address, cidr):
 
 
 
+
 def gui_main():
     options = [
-        "Binary to IP address",
         "IP address to Binary",
+        "Binary to IP address",
         "Find Network Address from IP and Subnet Mask",
         "Convert IP and CIDR Notation to Subnet Mask",
         "Calculate Possible Subnetting from IP range",
@@ -204,7 +246,7 @@ def gui_main():
         subnet_entry.grid_forget()
         submit_button.grid_forget()
 
-        if option == "Binary IP to IP address":
+        if option == "Binary to IP address":  # Change this line
             ip_label.config(text="Binary IP:")
             subnet_label.grid_forget()
             subnet_entry.grid_forget()
@@ -238,15 +280,15 @@ def gui_main():
     def on_submit(option):
         ip_address = ip_entry.get()
         subnet_mask_or_cidr = subnet_entry.get()
-
-        if option == "Binary IP to IP address":
-            result = binary_to_ip(ip_address)
-        elif option == "IP address to Binary":
+        if option == "IP address to Binary":
             result = ip_to_binary(ip_address)
+        elif option == "Binary to IP address":
+            result = binary_to_ip(ip_address)
         elif option == "Find Network Address from IP and Subnet Mask":
             result = network_address(ip_address, subnet_mask_or_cidr)
         elif option == "Convert IP and CIDR Notation to Subnet Mask":
-            result = cidr_to_subnet_mask(ip_address, int(subnet_mask_or_cidr))
+            subnet_mask = cidr_to_subnet_mask(ip_address, int(subnet_mask_or_cidr))
+            result = f"CIDR: {subnet_mask_or_cidr}, Subnet Mask: {subnet_mask}"
         elif option == "Calculate Possible Subnetting from IP range":
             result = possible_subnets(ip_address, subnet_mask_or_cidr)
         elif option == "Determine IP Class and Private/Public Status":
@@ -282,8 +324,8 @@ def gui_main():
     submit_button = tk.Button(root)
 
     options = options = [
-        "Binary to IP address",
         "IP address to Binary",
+        "Binary to IP address",
         "Find Network Address from IP and Subnet Mask",
         "Convert IP and CIDR Notation to Subnet Mask",
         "Calculate Possible Subnetting from IP range",
