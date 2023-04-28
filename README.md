@@ -27,6 +27,8 @@ The following functions are included:
 2.  Open a terminal or command prompt and navigate to the directory where the code is located.
 3.  Install the required libraries by running the command `pip install -r requirements.txt`.
 
+### Download Exe file for windows (Portable)(Require Python 3.11 Installed)
+[Download From Here](https://github.com/Blindsinner/IP-Toolkit/blob/main/ip_tool.py)
 ## Usage
 
 To run the program, navigate to the directory where the code is located and run the command `python ip_toolkit.py`.
