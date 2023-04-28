@@ -126,39 +126,41 @@ def possible_subnets(ip_address, subnet_mask):
     except ValueError:
         return "Error: Invalid IP address or subnet mask."
 
-def get_ip_class_by_hosts(total_hosts):
-    if total_hosts >= 16777214:
-        return 'A'
-    elif total_hosts >= 65534:
-        return 'B'
-    elif total_hosts >= 254:
-        return 'C'
-    else:
-        return 'D'
+def ip_class_by_hosts(cidr):
+    total_hosts = 2 ** (32 - int(cidr)) - 2
 
-def ip_class_private_public(ip_address, cidr):
+    first_octet = int(cidr.split('.')[0])
+
+    if total_hosts <= 254:
+        return "Class C"
+    elif total_hosts <= 65534:
+        return "Class B"
+    elif total_hosts <= 16777214:
+        return "Class A"
+    elif first_octet >= 224 and first_octet <= 239:
+        return "Class D (Multicast)"
+    else:
+        return "Class E (Experimental)"
+
+def ip_class_private_public(ip_address):
     try:
         ip = ipaddress.ip_address(ip_address)
         ip_class = ""
         if isinstance(ip, ipaddress.IPv4Address):
-            net = ipaddress.IPv4Network(f"{ip_address}/{cidr}")
             first_octet = int(ip_address.split(".")[0])
 
-            if net.prefixlen <= 8:
+            if 1 <= first_octet <= 126:
                 ip_class = "Class A"
-            elif net.prefixlen <= 16:
+            elif 128 <= first_octet <= 191:
                 ip_class = "Class B"
-            elif net.prefixlen <= 24:
+            elif 192 <= first_octet <= 223:
                 ip_class = "Class C"
-            elif net.prefixlen <= 32:
+            elif 224 <= first_octet <= 239:
                 ip_class = "Class D"
-
-            if first_octet >= 224 and first_octet <= 239:
-                ip_class = "Class D"
-            elif first_octet >= 240 and first_octet <= 255:
+            elif 240 <= first_octet <= 255:
                 ip_class = "Class E"
 
-            if net.is_private:
+            if ip.is_private:
                 return f"{ip_class}, Private"
             elif ip_class == "Class D":
                 return f"{ip_class}, Multicast"
@@ -173,7 +175,7 @@ def ip_class_private_public(ip_address, cidr):
                 ip_class = "Global Unicast Address"
             return ip_class
     except ValueError:
-        return "Error: Invalid IP address or subnet mask."
+        return "Error: Invalid IP address."
 
 
 def display_all_info(ip_address, cidr):
@@ -190,7 +192,7 @@ def display_all_info(ip_address, cidr):
         subnet_mask = str(ip_net.netmask)
         wildcard_mask = str(ip_net.hostmask)
         ip_class = get_ip_class_by_first_octet(ip_address)
-        ip_class_by_hosts = get_ip_class_by_hosts(total_hosts)
+        ip_class_by_total_hosts = ip_class_by_hosts(cidr)
         
         output = {
             "Display All Information for an IP Address and Subnet": "",
@@ -206,7 +208,7 @@ def display_all_info(ip_address, cidr):
             "Hex ID": hex(int(ipaddress.IPv4Address(ip_address))),
             "Binary ID": bin(int(ipaddress.IPv4Address(ip_address)))[2:].zfill(32),
             "IP Class by First Octet": ip_class,
-            "IP Class by Total Hosts": ip_class_by_hosts,
+            "IP Class by Total Hosts": ip_class_by_total_hosts,
             "IP Type": "Private" if ipaddress.IPv4Network(ip_address + '/' + str(cidr), strict=False).is_private else "Public",
             "Usable Host IP Range": ip_range,
             "Broadcast Address": broadcast_address,
