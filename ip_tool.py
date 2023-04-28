@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 import ipaddress
-
+#IP Tool GUI
 def binary_to_ip(binary_ip):
     # Count the number of dots in the input string
     num_dots = binary_ip.count('.')
